@@ -1,6 +1,6 @@
-selenium
-webdriver-manager
-pandas
 matplotlib
-umap-learn
+pandas
 seaborn
+selenium
+umap-learn
+webdriver-manager
