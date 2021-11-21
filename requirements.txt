@@ -4,3 +4,4 @@ seaborn
 selenium
 umap-learn
 webdriver-manager
+imblearn
