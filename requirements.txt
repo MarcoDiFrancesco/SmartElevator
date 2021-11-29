@@ -5,3 +5,6 @@ selenium
 umap-learn
 webdriver-manager
 imblearn
+tqdm
+ipywidgets
+plotly

@@ -8,9 +8,15 @@ def import_df(fname) -> pd.DataFrame:
     Args:
         fname (str): Json path
     """
-    fname = Path(fname)
-    assert fname.exists()
-    df = pd.read_json(fname)
-    # df = df.set_index("index")
-    # df["time"] = pd.to_datetime(df["time"], unit='ms')
+    path = Path("data-generated") / fname
+    assert path.exists(), "File does not exist"
+    df = pd.read_json(path)
     return df
+
+
+def export_df(df:pd.DataFrame, fname: str):
+    dest_dir = Path("data-generated")
+    dest_dir.mkdir(exist_ok=True)
+    dest = dest_dir / fname
+    with open(dest, "w") as f:
+        f.write(df.to_json())
