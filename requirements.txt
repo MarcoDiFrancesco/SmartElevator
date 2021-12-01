@@ -8,3 +8,5 @@ imblearn
 tqdm
 ipywidgets
 plotly
+scikit-learn
+scikit-survival
