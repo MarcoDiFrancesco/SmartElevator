@@ -47,21 +47,26 @@ class auxiliary_rul_agent_model:
              self.name=name
              
          self.rul_X=[]#contains all prediction till now of classic operative OVO classifier
-         self.score=[] #prev prediction score
          self.last_pred=[] #last prediction risk quantity
          self.surv=[] #survival function
          self.hazard=[]#cumulative hazard
-             
-     def RUL_prediction(self, epoch, OVOpred):
-         X_train=pd.DataFrame(self.rul_X)
-         print(X_train)
+         
+     def add(self, OVOpred):
          self.rul_X.append(OVOpred)
-         X_test=pd.DataFrame(self.rul_X)
+    
+     def RUL_prediction(self, epoch, OVOpred):
+         dummy_rul=self.rul_X[:]
+         dummy_rul.append(dummy_rul[len(dummy_rul)-1])
+         X_train=pd.DataFrame.from_records(dummy_rul)
+         X_train=X_train.T
+         self.add(OVOpred)
+         X_test=pd.DataFrame.from_records(self.rul_X)
+         X_test=X_test.T
          y_train=self.dataset.calculate_rul_label(epoch)#obtain rul label
-         print(y_train)
+         X_train=X_train.astype(float)
+         X_test=X_test.astype(float)
          self.model.fit(X_train, y_train)
-         self.score=self.model.score(X_train, y_train)
-         self.last_pred=pd.Series(self.model.predict(X_test))
+         self.last_pred=self.model.predict(X_test)
          self.surv = self.model.predict_survival_function(X_test, return_array=True)
          self.hazard = self.model.predict_cumulative_hazard_function(X_test, return_array=True)
          return self.last_pred
@@ -1345,14 +1350,14 @@ class operative_agent_model:
                     i+=1
                 self.f1_pred=self.total_score_calculation(self.matrix_list)
         else:#magnet case
-             if self.last_pred:
+             if len(self.last_pred)>0:
                 self.prev_pred=[]
                 self.prev_label=[]
-                self.prev_label.append(self.dataset.y_prev)               
-                self.prev_pred.append(self.last_pred)
+                self.prev_label=self.dataset.y_prev               
+                self.prev_pred=self.last_pred
                 if self.probability==True:
                     self.prev_pred_proba=[]
-                    self.prev_pred_proba.append(self.last_pred_proba)
+                    self.prev_pred_proba=self.last_pred_proba
                     self.last_pred_proba=[]
                 self.matrix_list=[]
                 self.matrix_list=multilabel_confusion_matrix(self.prev_label, self.prev_pred, labels=[1, 0])
@@ -1361,18 +1366,20 @@ class operative_agent_model:
                 self.prev__pred_RUL=self.last_pred_RUL
                 self.last_pred_RUL=[]
                 self.scaler.fit_transform(self.dataset.x_train)
-                self.ovo_model.fit(self.dataset.x_train[self.dataset.features.selected_features], self.dataset.y_train)
+                self.ovo_model.fit(self.dataset.x_train, self.dataset.y_train)
              else:
-                n=400
                 self.scaler.fit_transform(self.dataset.x_train)
                 self.ovo_model.fit(self.dataset.x_train, self.dataset.y_train)
                 y_pred1= self.ovo_model.predict(self.dataset.x_train)        
-                self.auxiliary.rul_X.append(y_pred1)
                 self.matrix_list=multilabel_confusion_matrix(self.dataset.y_train, y_pred1, labels=[1, 0])
+                n=int(len(self.dataset.x_train)/2)
                 y_pred=y_pred1[np.arange(0, n)]
-                y_train=self.dataset.y_train.iloc[:-n]
-                self.prev_label.append((y_train).values)
-                self.prev_pred.append(y_pred)
+                self.auxiliary.add(y_pred.tolist())
+                y_train=self.dataset.df[(self.dataset.df.day==1)]
+                y_train = y_train[self.dataset.features.targets_nb]
+                
+                self.prev_label=y_train
+                self.prev_pred=y_pred
 
                 self.f1_pred=self.total_score_calculation(self.matrix_list) 
 
@@ -1391,7 +1398,7 @@ class operative_agent_model:
                 i+=1
           else:#magnet
               self.scaler.fit_transform(self.dataset.x_test)
-              self.last_pred.append(self.ovo_model.predict(self.dataset.x_test))
+              self.last_pred=self.ovo_model.predict(self.dataset.x_test)
               if(self.probability==True):
                   self.last_pred_proba=self.ovo_model.predict_proba(self.dataset.x_test)
          
@@ -1443,13 +1450,18 @@ class operative_agent_model:
                 self.model=LinearDiscriminantAnalysis()
         elif(self.role=="magnet"):#if magnet wrap classiffier after setted
             if(self.name=="ridge"):
-                self.model=OneVsOneClassifier(RidgeClassifier())
+                self.ovo_model=OneVsOneClassifier(RidgeClassifier())
+                self.model=RidgeClassifier()
             elif(self.name=="svm"):
-                self.model=OneVsOneClassifier(svm.SVC(probability=True))       
+                self.ovo_model=OneVsOneClassifier(svm.SVC(probability=True))
+                self.model=svm.SVC(probability=True)       
+
             elif(self.name=="knn"):
-                self.model=OneVsOneClassifier(KNeighborsClassifier())
+                self.ovo_model=OneVsOneClassifier(KNeighborsClassifier())
+                self.model=KNeighborsClassifier()       
+
         
-        print("prediction done "+self.name+" role " + self.role +" epoch "+self.epoch)
+        print("prediction done "+self.name+" role " + self.role +" epoch "+ str(self.epoch))
 
 
     # full operative cycle simulation
