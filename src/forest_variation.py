@@ -25,28 +25,28 @@ from sklearn.tree._tree import DTYPE, DOUBLE
 from sklearn.utils.multiclass import check_classification_targets, type_of_target
 from sklearn.metrics import confusion_matrix
 
-#FUNCTIONS
+# FUNCTIONS
 
-#new saving function used for optimization of tree
-#higher it is this function better the results
-#Tt is time of reparation and travel to location, 0 because reparation is on user shoulder
-#TR cost (time) to repair, suposed half of a period
-#TG is time gap between prediction cylce, 0 days are continous
-#Tp total daylong prediction
-#t0 initial time of prediction, 0 but we could increase it based on day of prediction
-#C value of the engine
+# new saving function used for optimization of tree
+# higher it is this function better the results
+# Tt is time of reparation and travel to location, 0 because reparation is on user shoulder
+# TR cost (time) to repair, suposed half of a period
+# TG is time gap between prediction cylce, 0 days are continous
+# Tp total daylong prediction
+# t0 initial time of prediction, 0 but we could increase it based on day of prediction
+# C value of the engine
 def save_calculation(y_pred=None, y=None, TR=25, t0=0, Tp=50, C=100, TG=0, Tt=0):
-    matr=confusion_matrix(y, y_pred, labels=[1, 0])
+    matr = confusion_matrix(y, y_pred, labels=[1, 0])
     fp = matr[1][0]
     tp = matr[0][0]
-    S1=tp*(TR+2*(Tt-(Tt-Tp/2)))
-    Tl=(Tp-1)*(t0+TG+Tp/2)
-    S2=Tp*C/(2*Tl)*fp
-    return S1-S2
+    S1 = tp * (TR + 2 * (Tt - (Tt - Tp / 2)))
+    Tl = (Tp - 1) * (t0 + TG + Tp / 2)
+    S2 = Tp * C / (2 * Tl) * fp
+    return S1 - S2
 
 
-#function needed to the code belove . their implementation is pretty much
-#the same of original scikit learn one
+# function needed to the code belove . their implementation is pretty much
+# the same of original scikit learn one
 def _get_n_samples_bootstrap(n_samples, max_samples):
     """
     Get the number of samples in a bootstrap sample.
@@ -150,12 +150,13 @@ def _parallel_build_trees(
         tree.fit(X, y, sample_weight=sample_weight, check_input=False)
 
     return tree
-  
 
-#CLASSES
-#this classes are required to cope with dependencies and library issue if 
-#you modify the optimization function. their code is pretty the same of that
-#of scikit learn with introduction of new optimization function in classifier mixin
+
+# CLASSES
+# this classes are required to cope with dependencies and library issue if
+# you modify the optimization function. their code is pretty the same of that
+# of scikit learn with introduction of new optimization function in classifier mixin
+
 
 class ClassifierMixin_variation:
     """Mixin class for all classifiers in scikit-learn."""
@@ -182,13 +183,16 @@ class ClassifierMixin_variation:
             Mean accuracy of ``self.predict(X)`` wrt. `y`.
         """
 
-        return save_calculation(y, self.predict(X)) #where we have to inject the optimization
+        return save_calculation(
+            y, self.predict(X)
+        )  # where we have to inject the optimization
 
     def _more_tags(self):
         return {"requires_y": True}
-    
-#from here on these functions redefine hierarchy of daughter classifier when
-#you use new cost function
+
+
+# from here on these functions redefine hierarchy of daughter classifier when
+# you use new cost function
 class BaseForest_variation(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
     """
     Base class for forests of trees.
@@ -593,7 +597,7 @@ class BaseForest_variation(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
 
     # TODO: Remove in 1.2
     # mypy error: Decorated property not supported
-   
+
     @property
     def n_features_(self):
         """Number of features when fitting the estimator."""
@@ -614,8 +618,10 @@ def _accumulate_prediction(predict, X, out, lock):
             for i in range(len(out)):
                 out[i] += prediction[i]
 
-    
-class ForestClassifier_variation(ClassifierMixin_variation, BaseForest_variation, metaclass=ABCMeta):
+
+class ForestClassifier_variation(
+    ClassifierMixin_variation, BaseForest_variation, metaclass=ABCMeta
+):
     """
     Base class for forest of trees-based classifiers.
     Warning: This class should not be used directly. Use derived classes
@@ -723,8 +729,7 @@ class ForestClassifier_variation(ClassifierMixin_variation, BaseForest_variation
                     raise ValueError(
                         "Valid presets for class_weight include "
                         '"balanced" and "balanced_subsample".'
-                        'Given "%s".'
-                        % self.class_weight
+                        'Given "%s".' % self.class_weight
                     )
                 if self.warm_start:
                     warn(
@@ -865,7 +870,8 @@ class ForestClassifier_variation(ClassifierMixin_variation, BaseForest_variation
 
     def _more_tags(self):
         return {"multilabel": True}
-    
+
+
 class RandomForestClassifier_variation(ForestClassifier_variation):
     """
     A random forest classifier.
