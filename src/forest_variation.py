@@ -23,8 +23,19 @@ from sklearn.utils.fixes import delayed
 from sklearn.ensemble import ExtraTreesRegressor
 from sklearn.tree._tree import DTYPE, DOUBLE
 from sklearn.utils.multiclass import check_classification_targets, type_of_target
+from sklearn.metrics import confusion_matrix
 
-def save_calculation(y_pred=None, y=None, TR=30, t0=0, Tp=50, C=100, TG=0, Tt=25):
+#FUNCTIONS
+
+#new saving function used for optimization of tree
+#higher it is this function better the results
+#Tt is time of reparation and travel to location, 0 because reparation is on user shoulder
+#TR cost (time) to repair, suposed half of a period
+#TG is time gap between prediction cylce, 0 days are continous
+#Tp total daylong prediction
+#t0 initial time of prediction, 0 but we could increase it based on day of prediction
+#C value of the engine
+def save_calculation(y_pred=None, y=None, TR=25, t0=0, Tp=50, C=100, TG=0, Tt=0):
     matr=confusion_matrix(y, y_pred, labels=[1, 0])
     fp = matr[1][0]
     tp = matr[0][0]
@@ -34,7 +45,8 @@ def save_calculation(y_pred=None, y=None, TR=30, t0=0, Tp=50, C=100, TG=0, Tt=25
     return S1-S2
 
 
-
+#function needed to the code belove . their implementation is pretty much
+#the same of original scikit learn one
 def _get_n_samples_bootstrap(n_samples, max_samples):
     """
     Get the number of samples in a bootstrap sample.
@@ -140,7 +152,10 @@ def _parallel_build_trees(
     return tree
   
 
-
+#CLASSES
+#this classes are required to cope with dependencies and library issue if 
+#you modify the optimization function. their code is pretty the same of that
+#of scikit learn with introduction of new optimization function in classifier mixin
 
 class ClassifierMixin_variation:
     """Mixin class for all classifiers in scikit-learn."""
@@ -167,12 +182,13 @@ class ClassifierMixin_variation:
             Mean accuracy of ``self.predict(X)`` wrt. `y`.
         """
 
-        return save_calculation(y, self.predict(X))
+        return save_calculation(y, self.predict(X)) #where we have to inject the optimization
 
     def _more_tags(self):
         return {"requires_y": True}
     
-
+#from here on these functions redefine hierarchy of daughter classifier when
+#you use new cost function
 class BaseForest_variation(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
     """
     Base class for forests of trees.

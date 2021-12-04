@@ -126,7 +126,7 @@ class Features:
     return features_combo   
 
   #metodi di calcolo features
-  #mena
+  #mean
   def mean_calculation(self, df, machine, value, day): #df è il dataframe, value è  su quale dei dati raccolti  (quale colonna) vogliamo calcolare la feature media, day è il giorno per cui calcoliamo la feature, machine è la macchina per quale calcoliamo la feature
     df1=df[(df.machine==machine)&(df.day<=day)]
     return df1[value].mean()
@@ -248,7 +248,7 @@ class Data_operative:
           
       else:
           self.features=features
-      if(self.role=='magnet'):
+      if((self.role=='magnet')or(self.role=='general')):
             self.features.targets_binarized=['0', '0.5', '0.7', '1.0']
             self.df.loc[self.df['magnet']==0,'0'] = 1
             self.df['0'].fillna(0, inplace=True)
@@ -268,10 +268,6 @@ class Data_operative:
       #obtain machine number
       self.machine_number=self.df['machine'].nunique()
       
-     
-    #recover data from asystom platform . DA FINIRE??? 
-    def retrieve_data(self):  
-        return 0
 
     #generate AGWN noise
     def noise_generation(self, df):
@@ -294,8 +290,7 @@ class Data_operative:
         if(outlier==1): #first way use 3 sigma
             for label in df.label.unique():
                 dff = df[df.label == label]
-                # dff = dff.reset_index()
-                dff = dff.drop(["label", "vib_z_f1", "vib_z_f2", "vib_z_f3"], axis=1)
+                dff = dff.drop(["time", "label"], axis=1)
                 dff = dff.filter([
                     's_00', 's_01', 's_02', 's_03', 's_04', 's_05', 's_06', 's_07', 's_08',
                     's_09', 's_10', 's_11', 's_12', 's_13', 's_14', 's_15', 's_16', 's_17',
@@ -419,7 +414,7 @@ class Data_operative:
                 plt.show()
                 
             kmeans_0 = KMeans(init='k-means++',n_clusters=4)
-            kmeans_0.fit(numeric_df)#???
+            kmeans_0.fit(numeric_df)
             set(kmeans_0.labels_)
             
             if (visualize_clusters==True):
@@ -458,10 +453,9 @@ class Data_operative:
     #create standard dataframe for operative agent
     def use_standard_dataframe(self):
         
-        #retrieving data from asystom platform and save as jason file
-        self.retrieve_data()
-        #opening of data saved
-        with open("28-09_19-11_alldata.json", "r") as f:
+
+        #opening of data saved locally
+        with open("28-09_02-12_alldata.json", "r") as f:
             data = json.load(f)
         #creation of dataframe from file
         pd.DataFrame(data)
@@ -474,14 +468,17 @@ class Data_operative:
                 dfs.append(df)
                 
         df = dfs[0]
-        df_temp = dfs[2]
-        df_curr = dfs[3]
+        df_temp = dfs[1]
+        df_curr = dfs[2]
         df = df.drop([
             'client', "GW", "device", "mileage", "vibra_custom",
+            'vib_x_f1', 'vib_x_f2', 'vib_x_f3',
+            'vib_z_f1', 'vib_z_f2', 'vib_z_f3',
             'vib_x_root', 'vib_y_root', 'vib_z_root',
         ], axis=1)
         df_temp = df_temp.drop(['client', "GW", "device", 'weekday'], axis=1)
         df_curr = df_curr.drop(['client', "GW", "device", 'weekday'], axis=1)
+
         #join dataframe
         df = df.set_index('time')
         df = df.rename(columns={'temp': 'temperature_surface'})
@@ -498,14 +495,16 @@ class Data_operative:
         # 5th to 10th nothing happened
         df.loc[(df["time"] >= "2021-11-10 16:30") & (df["time"] <= "2021-11-16 14:00"), "label"] = "magnet-partial"
         df.loc[(df["time"] >= "2021-11-16 16:20") & (df["time"] <= "2021-12"), "label"] = "magnet-1" 
+        df.loc[(df["time"] >= "2021-11-22 16:30") & (df["time"] <= "2021-11-24 11:00"), "label"] = "magnet-2"
+        df.loc[(df["time"] >= "2021-11-29 17:15") & (df["time"] <= "2021-12-01 12:15"), "label"] = "magnet-2-nogrounding"
         df = df.drop('temperature_surface', 1) #surface temperature is not relevant
         df=df.dropna()
-        df=df.drop("time", 1)
 
         #outlier removal if requested
         if ((self.outlier==1)or(self.outlier==2)):
             self.remove_outlier(df, self.outlier)
-        
+        df=df.drop("time", 1)
+
         #balancing and noise generation. MI DAVA ERRORE IN LOCALE PER VIA DI PROBLEMI NELLE LIBRERIE
         
         if (self.balancing):
@@ -517,20 +516,25 @@ class Data_operative:
         # bearings label creation
         conditions=[
             (df["label"]=="bearings-1") | (df["label"]=="bearings-2"),
-            (df["label"]=="working-engine-1") | (df["label"]=="working-engine-2")|(df["label"]=="magnet-partial")|(df["label"]=="magnet-1")
+            (df["label"]=="working-engine-1") | (df["label"]=="working-engine-2")|(df["label"]=="magnet-partial")|(df["label"]=="magnet-1")|(df["label"]=="magnet-2")|(df["label"]=="magnet-2-nogrounding")
             ]
         values = [1, 0]
         df["bearings"]=np.select(conditions, values)
         #magnet label creation
         conditions=[
+            (df["label"]=="magnet-2"),
             (df["label"]=="magnet-1"),
             (df["label"]=="magnet-partial"),
-            (df["label"]=="working-engine-1") | (df["label"]=="working-engine-2")|(df["label"]=="bearings-1")|(df["label"]=="bearings-2")
+            (df["label"]=="working-engine-1") | (df["label"]=="working-engine-2")|(df["label"]=="bearings-1")|(df["label"]=="bearings-2")|(df["label"]=="magnet-2-nogrounding")
             ]
-        values = [0.7, 0.5, 0]
+        values = [1.0, 0.7, 0.5, 0]
         df["magnet"]=np.select(conditions, values)
-        #creating electricity columns .??? DA SISTEMARE QUANDO CI SONO DATI 
-        df["electricity_1"]=0
+        conditions=[
+            (df["label"]=="magnet-2-nogrounding"),
+            (df["label"]=="working-engine-1") | (df["label"]=="working-engine-2")|(df["label"]=="bearings-1")|(df["label"]=="bearings-2")|(df["label"]=="magnet-partial")|(df["label"]=="magnet-1")|(df["label"]=="magnet-2")
+            ]
+        values = [1, 0]
+        df["electricity_1"]=np.select(conditions, values)
         df["electricity_2"]=0
         
         #creation of day and machine column
@@ -735,7 +739,7 @@ class Data_ensemble:
          
          #obtain values to create X and Y
          self.row_number=self.data_operative.machine_number+1
-         self.column_number=50*3*(len(self.models)+2*(len(self.rul_models)))
+         self.column_number=50*3*(len(self.models))+2*(len(self.rul_models))*50
          self.X_train= np.zeros((self.row_number, self.column_number))
          self.X_train_prev=[]
          self.Y_train_prev=[]
@@ -743,129 +747,309 @@ class Data_ensemble:
          self.X_test=np.zeros((self.row_number, self.column_number))
          
      def obtain_data(self, epoch, train=True): 
-         if(epoch>2):#memorize to do parameter selection in ensemble
-             self.X_train_prev=self.X_train
-             self.Y_train_prev=self.Y_train
-         if (train==True):           
-            self.X_train=np.zeros((self.row_number, self.column_number))
-            error_y=np.random.poisson(0.01, self.row_number)
-            self.Y_train=np.zeros((self.row_number))
-            
-            n_model=0
-            k=0
-            for model in self.models:#for eache standard model
-                n_label=0
-                for label_pred in model.prev_pred:#for each problem
-                    j=(0+n_model*150+n_label*50)#column number
-                    i=0#row number
-                    for pred in label_pred:
-                        if ((j%50)==0):
-                            j=0+n_model*150+n_label*50
-                            i+=1
-                        self.X_train[i][j]=pred      
-                        j+=1
-                        k+=1
-                    n_label+=1
-                n_model+=1
-            
-            n_rul_model=0
-            for model in self.rul_models:#for each rul models
-                    j=(0+n_model*150+n_rul_model*100+n_label*50)#column number
-                    i=0#row number
-                    n_label=0
-                    for pred in model.prev_pred:
-                        if ((j%50)==0):
-                            j=0+n_model*150+n_rul_model*300+n_label*50
-                            i+=1#increase machine
-                        self.X_train[i][j]=pred      
-                        j+=1
-                    n_label+=1
-                    j=0+n_model*150+n_rul_model*100+n_label*50
-                    for pred in model.prev_pred_RUL:
-                        if ((j%50)==0):
-                            j=0+n_model*150+n_rul_model*100+n_label*50
-                            i+=1#increase machine
-                        self.X_train[i][j]=pred      
-                        j+=1
-                    n_rul_model+=1
-            self.X_train = pd.DataFrame(self.X_test)
-
-            for label in self.data._operative.features.targets:
-                df=self.data_operative.df[self.data_operative.df.day==epoch]#riduco il dataframe all'epoca che stiamo valutando
-                i=0
-                j=0
-                for elem in df[label]:
-                    if (i==50):
-                        i=0
-                        j+=1
-                    
-                    if((elem==1)and(k==0)):
-                        if(error_y[j]==0):
-                            self.Y_train[j]=1
-
-                    elif(elem==1)and(k!=0)and(label != "magnet"):
-                        if(error_y[j]==0):
-                            self.Y_train[j]+=0.5
+        if (train==True):
+             if (epoch==2):
+                 X_train= np.zeros((self.row_number, self.column_number))
+                 m=0#number of model
+                 k=0
+                 for m in range(0, len(self.models)):
+                    for label in ['bearings', 'electricity_1', 'electricity_2']:
+                        df=self.data_operative.df[self.data_operative.df.day==epoch-2]
+                        i=0+50*k*m
+                        j=0
+                        for  elem in df[label]:
+                            if (i%50==0):#go to next machine
+                                i=0+50*k*m
+                                j+=1
                             
-                    elif(elem!=0)and(label == "magnet"):
-                        if(error_y[j]==0):
-                            self.Y_train[j]+=elem
-                    i+=1
-                    
-            
-                k+=1
-                
-            #polish label
-            for entry in self.Y_train:
-                if (entry<1):
-                    entry=0
-                elif (entry>1):
-                    entry=1
-            #update total features column
-            self.features=Features(selected=list(self.X_train.columns))
-            
-            
-
-         else:#for test porpouse
-            self.X_test=np.zeros((self.row_number, self.column_number))
-            n_model=0
-            k=0
-            for model in self.models:
-                n_label=0
-                for label_pred in model.last_pred:
-                    j=(0+n_model*150+n_label*50)
-                    i=0
-                    for pred in label_pred:
-                        if ((j%50)==0):
-                            j=0+n_model*150+n_label*50
+                            if((elem==1)and(k==0)):
+                                X_train[j][i]=1
+        
                             i+=1
-                        self.X_test[i][j]=pred      
-                        j+=1
+                            
+                    k+=1
+                        
+                 m=0
+                 for m in range(0, len(self.rul_models)):
+                        df=self.data_operative.df[self.data_operative.df.day==epoch-2]
+                        i=0+50*3*len(self.models)+100*m
+                        j=0
+                        for  elem in df['magnet_nb']: 
+                            if (i%50==0):
+                                i=0+50*3*len(self.models)+100*m
+                                j+=1
+                            
+                            
+                            X_train[j][i]=float(X_train[j][i])+float(elem)
+                                
+                            if (X_train[j][i]<1):
+                                X_train[j][i]=0
+                            elif (X_train[j][i]>1):
+                                X_train[j][i]=1
+                            else:
+                                X_train[j][i]=1
+                            
+                            X_train[j][i]=str(X_train[j][i])
+        
+                            i+=1
+                            
+                 error_y=np.random.poisson(0.01, self.row_number)
+                 Y_train=np.zeros((self.row_number))
+                 k=0
+                 for label in self.data_operative.features.targets:
+                     df=self.data_operative.df[self.data_operative.df.day==epoch-2]#riduco il dataframe all'epoca che stiamo valutando
+                     i=0
+                     j=0
+                     for elem in df[label]:
+                         if (i==50):
+                             i=0
+                             j+=1
+                         
+                         if((elem==1)and(k==0)):
+                             if(error_y[j]==0):
+                                 Y_train[j]=1
+     
+                         elif(elem==1)and(k!=0)and(label != "magnet"):
+                             if(error_y[j]==0):
+                                 Y_train[j]+=0.5
+                                 
+                         elif(elem!=0)and(label == "magnet"): 
+                             if(error_y[j]==0):
+                                 Y_train[j]+=elem
+                         i+=1
+                         
+                 
+                     k+=1
+                     
+                 #polish label
+                 for i in range(0, len(Y_train)):
+                     if (Y_train[i]<1):
+                         Y_train[i]=0
+                     elif (Y_train[i]>1):
+                         Y_train[i]=1
+                     else:
+                         Y_train[i]=1
+
+                 self.X_train_prev.append(pd.DataFrame(X_train))
+                 self.Y_train_prev.append(pd.DataFrame(Y_train))
+                     
+                 
+                 
+
+                 m=0#number of model
+                 k=0
+                 for m in range(0, len(self.models)):
+                    for label in ['bearings', 'electricity_1', 'electricity_2']:
+                        df=self.data_operative.df[self.data_operative.df.day==epoch-2]
+                        i=0+50*k*m
+                        j=0
+                        for  elem in df[label]:
+                            if (i%50==0):#go to next machine
+                                i=0+50*k*m
+                                j+=1
+                            
+                            if((elem==1)and(k==0)):
+                                self.X_train[j][i]=1
+        
+                            i+=1
+                            
+                    k+=1
+                        
+                 m=0
+                 for m in range(0, len(self.rul_models)):
+                        df=self.data_operative.df[self.data_operative.df.day==epoch-2]
+                        i=0+50*3*len(self.models)+100*m
+                        j=0
+                        for  elem in df['magnet_nb']: 
+                            if (i%50==0):
+                                i=0+50*3*len(self.models)+100*m
+                                j+=1
+                            
+                            
+                            X_train[j][i]=float(X_train[j][i])+float(elem)
+                                
+                            if (self.X_train[j][i]<1):
+                                self.X_train[j][i]=0
+                            elif (self.X_train[j][i]>1):
+                                self.X_train[j][i]=1
+                            else:
+                                self.X_train[j][i]=1
+                            
+                            X_train[j][i]=str(X_train[j][i])
+        
+                            i+=1
+                            
+                 self.X_train=pd.DataFrame(self.X_train)
+                 
+                 error_y=np.random.poisson(0.01, self.row_number)
+
+                 k=0
+                 for label in self.data_operative.features.targets:
+                     df=self.data_operative.df[self.data_operative.df.day==epoch-1]#riduco il dataframe all'epoca che stiamo valutando
+                     i=0
+                     j=0
+                     for elem in df[label]:
+                         if (i==50):
+                             i=0
+                             j+=1
+                         
+                         if((elem==1)and(k==0)):
+                             if(error_y[j]==0):
+                                 self.Y_train[j]=1
+     
+                         elif(elem==1)and(k!=0)and(label != "magnet"):
+                             if(error_y[j]==0):
+                                 self.Y_train[j]+=0.5
+                                 
+                         elif(elem!=0)and(label == "magnet"): 
+                             if(error_y[j]==0):
+                                 self.Y_train[j]+=elem
+                         i+=1
+                         
+                 
+                     k+=1
+                     
+                 #polish label
+                 for i in range(0, len(self.Y_train)):
+                     if (self.Y_train[i]<1):
+                         self.Y_train[i]=0
+                     elif (self.Y_train[i]>1):
+                         self.Y_train[i]=1
+                     else:
+                         self.Y_train[i]=1
+                 self.Y_train=pd.DataFrame(self.Y_train)
+             else:
+                    self.X_train_prev.append(self.X_train)
+                    self.Y_train_prev.append(self.Y_train)
+                               
+                    self.X_train=np.zeros((self.row_number, self.column_number))
+                    error_y=np.random.poisson(0.01, self.row_number)
+                    self.Y_train=np.zeros((self.row_number))
+                       
+                    n_model=0
+                    k=0
+                    for model in self.models:#for eache standard model
+                        n_label=0
+                        for label_pred in model.prev_pred:#for each problem
+                            j=(0+n_model*150+n_label*50)#column number
+                            i=0#row number
+                            for pred in label_pred:
+                                if ((j%50)==0):
+                                    j=0+n_model*150+n_label*50
+                                    i+=1
+                                self.X_train[i][j]=pred      
+                                j+=1
+                                k+=1
+                            n_label+=1
+                        n_model+=1
+                    
+                    n_rul_model=0
+                    for model in self.rul_models:#for each rul models
+                            j=(0+n_model*150+n_rul_model*100)#column number
+                            i=0#row number
+                            n_rul_model=0
+                            for pred in model.prev_pred:
+                                if ((j%50)==0):
+                                    j=n_model*150+n_rul_model*100
+                                    i+=1#increase machine
+                                self.X_train[i][j]=pred      
+                                j+=1
+                            
+                            n_rul_model=0
+                            j=0+n_model*150+n_rul_model*100+50
+                            i=0
+                            for pred in model.prev_pred_RUL:
+        
+                                if ((j%50)==0):
+                                    j=0+n_model*150+n_rul_model*100+50
+                                    i+=1#increase machine
+                                self.X_train[i][j]=pred      
+                                j+=1
+                            n_rul_model+=1
+                    self.X_train = pd.DataFrame(self.X_test)
+                    k=0
+                    for label in self.data_operative.features.targets:
+                        df=self.data_operative.df[self.data_operative.df.day==epoch]#riduco il dataframe all'epoca che stiamo valutando
+                        i=0
+                        j=0
+                        for elem in df[label]:
+                            if (i==50):
+                                i=0
+                                j+=1
+                            
+                            if((elem==1)and(k==0)):
+                                if(error_y[j]==0):
+                                    self.Y_train[j]=1
+        
+                            elif(elem==1)and(k!=0)and(label != "magnet"):
+                                if(error_y[j]==0):
+                                    self.Y_train[j]+=0.5
+                                    
+                            elif(elem!=0)and(label == "magnet"): 
+                                if(error_y[j]==0):
+                                    self.Y_train[j]+=elem
+                            i+=1
+                            
+                    
                         k+=1
-                    n_label+=1
-                n_model+=1
-            
-            n_rul_model=0
-            for model in self.rul_models:
-                    j=(0+n_model*150+n_rul_model*100+n_label*50)
-                    i=0#row number
-                    n_label=0
-                    for pred in model.last_pred_RUL:
-                        if ((j%50)==0):
-                            j=0+n_model*150+n_rul_model*300+n_label*50
-                            i+=1#increase machine
-                        self.X_test[i][j]=pred      
-                        j+=1
-                    n_label+=1
-                    j=0+n_model*150+n_rul_model*100+n_label*50
-                    for pred in model.last_pred_RUL:
-                        if ((j%50)==0):
-                            j=0+n_model*150+n_rul_model*100+n_label*50
-                            i+=1#increase machine
-                        self.X_test[i][j]=pred      
-                        j+=1
-                    n_rul_model+=1
-            self.X_test = pd.DataFrame(self.X_test)
+                        
+                    #polish label
+                    for i in range(0, len(self.Y_train)):
+                        if (self.Y_train[i]<1):
+                            self.Y_train[i]=0
+                        elif (self.Y_train[i]>1):
+                            self.Y_train[i]=1
+                        else:
+                            self.Y_train[i]=1
+                    self.Y_train=pd.DataFrame(self.Y_train)
+                        
+             self.data_operative.features.selected_features=list(self.X_train.columns.values)
+
+
+
+        else:#for test porpouse
+           self.X_test=np.zeros((self.row_number, self.column_number))
+           n_model=0
+           k=0
+           for model in self.models:#for eache standard model
+               n_label=0
+               for label_pred in model.last_pred:#for each problem
+                   j=(0+n_model*150+n_label*50)#column number
+                   i=0#row number
+                   for pred in label_pred:
+                       if ((j%50)==0):
+                           j=0+n_model*150+n_label*50
+                           i+=1
+                       self.X_test[i][j]=pred      
+                       j+=1
+                       k+=1
+                   n_label+=1
+               n_model+=1
+           
+           n_rul_model=0
+           for model in self.rul_models:#for each rul models
+                   j=(0+n_model*150+n_rul_model*100)#column number
+                   i=0#row number
+                   n_rul_model=0
+                   for pred in model.last_pred:
+                       if ((j%50)==0):
+                           j=n_model*150+n_rul_model*100
+                           i+=1#increase machine
+                       self.X_test[i][j]=pred      
+                       j+=1
+                   
+                   n_rul_model=0
+                   j=0+n_model*150+n_rul_model*100+50
+                   i=0
+                   for pred in model.last_pred_RUL:
+
+                       if ((j%50)==0):
+                           j=0+n_model*150+n_rul_model*100+50
+                           i+=1#increase machine
+                       self.X_test[i][j]=pred      
+                       j+=1
+                   n_rul_model+=1
+           self.X_test = pd.DataFrame(self.X_test)
 
 
 
