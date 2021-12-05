@@ -142,6 +142,7 @@ class operative_agent_model:
                 self.dataset = data_manipulation.Data_operative(
                     self.outlier, self.balancing
                 )
+
             elif self.role == "magnet":
                 self.dataset = data_manipulation.Data_operative(
                     self.outlier, self.balancing, self.role
@@ -252,12 +253,14 @@ class operative_agent_model:
                     X_new = X.iloc[:, model.get_support(indices=True)]
                     sel_feat.update(list(X_new.columns.values))
                 feature_obtained = list(sel_feat)
+
                 if len(feature_obtained) < n:
                     for label in self.dataset.features.targets:
-                        lsvc = LinearSVC().fit(X, y[label])
-                        model = SelectFromModel(lsvc, prefit=True)
-                        X_new = X.iloc[:, model.get_support(indices=True)]
-                        sel_feat.update(list(X_new.columns.values))
+                        if len(y[label].unique()) != 1:
+                            lsvc = LinearSVC().fit(X, y[label])
+                            model = SelectFromModel(lsvc, prefit=True)
+                            X_new = X.iloc[:, model.get_support(indices=True)]
+                            sel_feat.update(list(X_new.columns.values))
                     feature_obtained = list(sel_feat)
 
                 if len(feature_obtained) < n:
@@ -1597,17 +1600,24 @@ class operative_agent_model:
         ):  # E SE ANDASSE CAMBIATO ANCHE ENSEMBLE A EPOCH E NON EPOCH-1
 
             # dataframe extraction for train
-            x_train = self.dataset.df[
-                (self.dataset.df.day < (day))
-            ]  # NON SO SE QUESTO VADA CAMBIATO ANCHE NELL ENSEMBLE
+            # x_train = self.dataset.df[(self.dataset.df.day < (day))]
+            x_train = self.dataset.df[(self.dataset.df.day == (day - 1))]
+            x_train = x_train[:250]
             x_train = x_train[features]
-            y_train = self.dataset.df[(self.dataset.df.day < (day))]
+            # y_train = self.dataset.df[(self.dataset.df.day < (day))]
+            y_train = self.dataset.df[(self.dataset.df.day == (day - 1))]
+            y_train = y_train[:250]
             y_train = y_train[target]
             # dataframe extraction for test
             x_test = self.dataset.df[(self.dataset.df.day == (day))]
+            x_test = x_test[:250]
             x_test = x_test[features]
             y_test = self.dataset.df[(self.dataset.df.day == (day))]
+            y_test = y_test[:250]
             y_test = y_test[target]
+
+            # print("TRAIN len", len(x_train), len(y_train))
+            # print("VALID len", len(x_test), len(y_test))
 
             if scaler is None:
                 self.scaler.fit_transform(x_train)
