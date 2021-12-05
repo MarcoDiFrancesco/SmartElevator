@@ -46,7 +46,7 @@ class ensemble_agent_model:
                 operative_agent.operative_agent_model("knn", role="std"),
                 operative_agent.operative_agent_model("logistic", role="std"),
                 operative_agent.operative_agent_model("lda", role="std"),
-                # operative_agent.operative_agent_model("svm", role="std"),
+                operative_agent.operative_agent_model("svm", role="std"),
             ]
             self.rul_model_list = [
                 # operative_agent.operative_agent_model("ridge", role="magnet")
@@ -586,7 +586,7 @@ class ensemble_agent_model:
 
     # train model
     def train_model(self):
-        self.feature_selection()  # if no train set do however a prior features selection
+        # self.feature_selection()  # if no train set do however a prior features selection
         self.parameter_selection()
         if self.name == "RandomForestClassifier":
             self.model = RandomForestClassifier(
