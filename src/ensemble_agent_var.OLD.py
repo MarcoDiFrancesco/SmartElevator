@@ -46,10 +46,12 @@ class ensemble_agent_model:
                 operative_agent.operative_agent_model("knn", role="std"),
                 operative_agent.operative_agent_model("logistic", role="std"),
                 operative_agent.operative_agent_model("lda", role="std"),
-                # operative_agent.operative_agent_model("svm", role="std"),
+                operative_agent.operative_agent_model("svm", role="std"),
             ]
             self.rul_model_list = [
-                # operative_agent.operative_agent_model("ridge", role="magnet")
+                # operative_agent.operative_agent_model("knn", role="magnet"),
+                # operative_agent.operative_agent_model("svm", role="magnet"),
+                # operative_agent.operative_agent_model("ridge", role="magnet"),
             ]
         else:
             for elem in model_list:
