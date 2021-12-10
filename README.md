@@ -1,5 +1,5 @@
 # Smart elevator
-Analyze data coming from your elevator.
+AI sytem to **Analyze** data and make **Fault prediction** of your elevator
 
 ## Why and What
 Everythink in the [report](report.pdf).
